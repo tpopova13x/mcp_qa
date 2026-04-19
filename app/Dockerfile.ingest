@@ -1,0 +1,13 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app/ingest.py .
+COPY app/download_and_ingest.py .
+COPY app/chroma/ chroma/
+COPY app/user_documentation/*.py user_documentation/
+COPY app/internal_documentation/*.py internal_documentation/
+COPY app/existing_tests/*.py existing_tests/

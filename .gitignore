@@ -1,0 +1,10 @@
+venv/
+storage/
+.env
+.mypy_cache/
+__pycache__/
+*.pyc
+app/*/data/
+app/*/raw_data/
+app/existing_tests/tests_old.json
+app/user_documentation/Dockerfile

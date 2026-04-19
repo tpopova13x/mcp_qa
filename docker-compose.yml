@@ -1,0 +1,142 @@
+services:
+  chromadb:
+    image: chromadb/chroma
+    container_name: chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./storage/chroma-data:/data
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/8000"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    env_file: .env
+    volumes:
+      - ./storage/postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ingest-user-docu:
+    build:
+      context: .
+      dockerfile: app/Dockerfile.ingest
+    container_name: ingest-user-docu
+    profiles: [ingest]
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - COLLECTION_NAME=user_docs
+      - DATA_ARCHIVE=user_documentation/data/data.zip
+    command: ["python", "ingest.py", "user-docu"]
+    volumes:
+      - ./app/user_documentation/data:/app/user_documentation/data
+
+  download-and-ingest-user-docu:
+    build:
+      context: .
+      dockerfile: app/Dockerfile.ingest
+    container_name: download-and-ingest-user-docu
+    profiles: [download-and-ingest]
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - COLLECTION_NAME=user_docs
+      - DATA_ARCHIVE=user_documentation/data/data.zip
+    command: ["python", "download_and_ingest.py", "user-docu"]
+    volumes:
+      - ./app/user_documentation/data:/app/user_documentation/data
+
+  ingest-internal-docu:
+    build:
+      context: .
+      dockerfile: app/Dockerfile.ingest
+    container_name: ingest-internal-docu
+    profiles: [ingest]
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - COLLECTION_NAME=internal_docs
+      - DATA_DIR=internal_documentation/data/
+    command: ["python", "ingest.py", "internal-docu"]
+    volumes:
+      - ./app/internal_documentation/data:/app/internal_documentation/data
+
+  download-and-ingest-internal-docu:
+    build:
+      context: .
+      dockerfile: app/Dockerfile.ingest
+    container_name: download-and-ingest-internal-docu
+    profiles: [download-and-ingest]
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - COLLECTION_NAME=internal_docs
+      - DATA_DIR=internal_documentation/data/
+    command: ["python", "download_and_ingest.py", "internal-docu"]
+    volumes:
+      - ./app/internal_documentation/data:/app/internal_documentation/data
+
+  ingest-tests:
+    build:
+      context: .
+      dockerfile: app/Dockerfile.ingest
+    container_name: ingest-tests
+    profiles: [ingest]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - DATA_FILE=existing_tests/data/tests.csv
+    command: ["python", "ingest.py", "tests"]
+    volumes:
+      - ./app/existing_tests/data:/app/existing_tests/data
+
+  download-and-ingest-tests:
+    build:
+      context: .
+      dockerfile: app/Dockerfile.ingest
+    container_name: download-and-ingest-tests
+    profiles: [download-and-ingest]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - DATA_FILE=existing_tests/data/tests.csv
+    command: ["python", "download_and_ingest.py", "tests"]
+    volumes:
+      - ./app/existing_tests/data:/app/existing_tests/data
+
+  mcp-server:
+    build:
+      context: .
+      dockerfile: app/mcp_server/Dockerfile
+    container_name: mcp-server
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    depends_on:
+      chromadb:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    env_file: .env
