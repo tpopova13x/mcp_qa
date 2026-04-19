@@ -22,30 +22,40 @@ An MCP (Model Context Protocol) server that exposes QA-related data sources — 
 |------|-------------|-------------|
 | `search_user_docu` | Search user-facing documentation | ChromaDB (`user_docs` collection) |
 | `search_internal_docu` | Search internal/API documentation | ChromaDB (`internal_docs` collection) |
-| `search_tests` | Search test cases by id, name, role, or steps | PostgreSQL (`tests` table) |
+| `search_tests` | Search test cases by id, name, description, or steps | PostgreSQL (`tests` table) |
 
 ## Project Structure
 
 ```
-├── docker-compose.yml          # All services with profiles
-├── .env                        # Environment variables & credentials
+├── docker-compose.yml              # All services with profiles
+├── .env                            # Environment variables & credentials
+├── .env.example                    # Template for .env
 ├── requirements.txt
 ├── app/
-│   ├── ingest.py               # Unified ingest CLI (user-docu | internal-docu | tests)
-│   ├── Dockerfile.ingest       # Dockerfile for all ingest operations
+│   ├── ingest.py                   # Unified ingest CLI (user-docu | internal-docu | tests)
+│   ├── download_and_ingest.py      # Unified download+ingest CLI
+│   ├── Dockerfile.ingest           # Dockerfile for all ingest operations
+│   ├── chroma/
+│   │   └── upsert.py               # Shared ChromaDB operations
 │   ├── mcp_server/
-│   │   ├── server.py           # MCP server with 3 tools
+│   │   ├── server.py               # MCP server with 3 tools
 │   │   └── Dockerfile
-│   ├── user_documentation/     # Local user docs (markdown in zip)
-│   ├── internal_documentation/ # Local internal docs (PDFs)
-│   └── existing_tests/         # Local test data (JSON)
-├── storage/                    # Docker volumes (chroma-data, postgres-data)
-├── tests/                      # Test & query scripts
+│   ├── user_documentation/         # GitLab markdown download & ingest
+│   │   ├── download.py
+│   │   └── ingest.py
+│   ├── internal_documentation/     # Confluence HTML download & ingest
+│   │   ├── download.py
+│   │   └── ingest.py
+│   └── existing_tests/             # Xray Cloud test export & ingest
+│       ├── download.py
+│       └── ingest.py
+├── storage/                        # Docker volumes (chroma-data, postgres-data)
+├── tests/                          # Test & query scripts
 │   ├── test_mcp_server.py
 │   ├── query_user_docu.py
 │   └── query_int_docu.py
 └── .vscode/
-    └── mcp.json                # VS Code Copilot MCP integration
+    └── mcp.json                    # VS Code Copilot MCP integration
 ```
 
 ## Quick Start
@@ -73,9 +83,9 @@ docker compose --profile ingest up
 ```
 
 Ingests data from local files into the databases:
-- **User docs** — markdown files from `app/user_documentation/data.zip`
-- **Internal docs** — PDFs from `app/internal_documentation/data/`
-- **Tests** — JSON from `app/existing_tests/data/tests.json`
+- **User docs** — markdown files from `app/user_documentation/data/data.zip`
+- **Internal docs** — HTML files from `app/internal_documentation/data/`
+- **Tests** — CSV from `app/existing_tests/data/tests.csv`
 
 #### Mode 3: Download from external sources & ingest
 
@@ -86,7 +96,7 @@ docker compose --profile download-and-ingest up
 Downloads and ingests data from remote systems:
 - **User docs** — markdown files from a **GitLab** repository
 - **Internal docs** — pages from a **Confluence** space
-- **Tests** — issues from **Jira** via JQL
+- **Tests** — test cases from **Xray Cloud** via GraphQL API
 
 Requires the corresponding environment variables in `.env` (see below).
 
@@ -132,17 +142,17 @@ Then connect to `http://localhost:8080/mcp` with Streamable HTTP transport.
 |----------|-------------|
 | `CONFLUENCE_URL` | Confluence URL (e.g. `https://yourcompany.atlassian.net/wiki`) |
 | `CONFLUENCE_EMAIL` | Atlassian account email |
-| `CONFLUENCE_API_TOKEN` | Atlassian API token |
+| `CONFLUENCE_JIRA_API_TOKEN` | Atlassian API token |
 | `CONFLUENCE_SPACE_KEY` | Space key to fetch pages from |
 
-### Jira (for `download-and-ingest` — tests)
+### Xray Cloud (for `download-and-ingest` — tests)
 
 | Variable | Description |
 |----------|-------------|
-| `JIRA_URL` | Jira instance URL (e.g. `https://yourcompany.atlassian.net`) |
-| `JIRA_EMAIL` | Atlassian account email |
-| `JIRA_API_TOKEN` | Atlassian API token |
-| `JIRA_JQL` | JQL query to filter test issues (default: `labels = mcp`) |
+| `XRAY_CLIENT_ID` | Xray Cloud API client ID |
+| `XRAY_CLIENT_SECRET` | Xray Cloud API client secret |
+| `XRAY_JQL` | JQL query to filter test issues (e.g. `project = "YOUR_PROJECT"`) |
+| `XRAY_CSV_PATH` | Output path for exported CSV (default: `existing_tests/data/tests.csv`) |
 
 ## Stopping
 
