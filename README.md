@@ -63,10 +63,6 @@ An MCP (Model Context Protocol) server that exposes QA-related data sources — 
 │       ├── download.py
 │       └── ingest.py
 ├── storage/                        # Docker volumes (chroma-data, postgres-data)
-├── tests/                          # Test & query scripts
-│   ├── test_mcp_server.py
-│   ├── query_user_docu.py
-│   └── query_int_docu.py
 └── .vscode/
     └── mcp.json                    # VS Code Copilot MCP integration
 ```
