@@ -53,7 +53,14 @@ _conn.cursor().execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
 _conn.commit()
 pg_pool.putconn(_conn)
 
-mcp = FastMCP("mcp-qa", host="0.0.0.0", port=8080)
+mcp = FastMCP("mcp-qa", host="0.0.0.0", port=8080, instructions="""You are a QA documentation and test search assistant. Your role is to help users find information across three knowledge bases: user documentation, internal documentation, and test cases.
+
+Strategy:
+- For user-level questions (feature usage, setup, troubleshooting), search user documentation first.
+- For internal team questions (architecture, permissions, design), search internal documentation.
+- When users need to understand test coverage or find existing tests, search the test database.
+- When appropriate, search multiple sources to provide comprehensive answers.
+- Always include source information in your responses.""")
 
 
 def _query_chroma(collection_name, query, n_results):
@@ -98,6 +105,7 @@ async def search_user_docu(
     query: Annotated[str, Field(description="The search query to find relevant user documentation")],
     n_results: Annotated[int, Field(description="Number of results to return", default=3)] = 3,
 ) -> str:
+    """Search user documentation using semantic similarity."""
     await ctx.info(f"Searching user docs for: {query}")
     output = _query_chroma("user_docs", query, n_results)
     await ctx.info(f"Found {len(output)} matching user-doc chunks")
@@ -110,6 +118,7 @@ async def search_internal_docu(
     query: Annotated[str, Field(description="The search query to find relevant internal documentation")],
     n_results: Annotated[int, Field(description="Number of results to return", default=3)] = 3,
 ) -> str:
+    """Search internal documentation using semantic similarity."""
     await ctx.info(f"Searching internal docs for: {query}")
     output = _query_chroma("internal_docs", query, n_results)
     await ctx.info(f"Found {len(output)} matching internal-doc chunks")
@@ -121,6 +130,7 @@ async def search_tests(
     ctx: Context,
     query: Annotated[str, Field(description="Search term to match against test id, name, description, or steps")],
 ) -> str:
+    """Search tests using full-text search and fuzzy matching across id, name, description, and steps."""
     await ctx.info(f"Searching tests for: {query}")
     rows = _query_tests(query)
     await ctx.info(f"Found {len(rows)} matching tests")
